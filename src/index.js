@@ -4,34 +4,37 @@ import Notiflix from 'notiflix';
 import SimpleLightbox from 'simplelightbox';
 import 'simplelightbox/dist/simple-lightbox.min.css';
 
+
 const refs = {
   form: document.querySelector('.search-form'),
   listImg: document.querySelector('.gallery'),
-  btnLoadMore: document.querySelector('.load-more'),
+  targetLoadMore: document.querySelector('.targetLoadMore'),
 };
 
 refs.form.addEventListener('submit', handlerSubmit);
-refs.btnLoadMore.addEventListener('click', handlerLoadMore);
+
 
 async function handlerSubmit(evt) {
   evt.preventDefault();
   query = refs.form.elements.searchQuery.value;
   page = 1;
-  refs.btnLoadMore.classList.add('hide');
+
     const result = await serviceImageSearch();
     Notiflix.Notify.info(
         `Hooray! We found ${result.totalHits} images.`
     )
     refs.listImg.innerHTML = '';
     if (result.totalHits === 0) {
+        observer.unobserve(refs.targetLoadMore);
         Notiflix.Notify.failure(
           'Sorry, there are no images matching your search query. Please try again.'
         );
     } else {
         createMarkup(result.hits);
-        refs.btnLoadMore.classList.remove('hide');
+        // refs.btnLoadMore.classList.remove('hide');
         maxpage = result.totalHits / 40;
     }
+    observer.observe(refs.targetLoadMore);
   refs.form.reset();
 }
 
@@ -41,6 +44,8 @@ let lightbox = new SimpleLightbox('.gallery a', {
 let page;
 let query;
 let maxpage;
+let observer = new IntersectionObserver(onObserver);
+
 
 async function serviceImageSearch() {
   const BASE_URL = 'https://pixabay.com/api/';
@@ -54,11 +59,12 @@ async function serviceImageSearch() {
     per_page: 40,
   });
   const url = `${BASE_URL}?${searchParams}`;
-  const response = await fetch(url);
+    const response = await axios.get(url);
+    console.log(response);
   if (response.status !== 200) {
     throw new Error(response.status);
   }
-  return response.json();
+  return response.data;
 }
 
 function createMarkup(arr) {
@@ -90,7 +96,7 @@ function createMarkup(arr) {
 async function handlerLoadMore() {
   page += 1;
   if (page > maxpage) {
-    refs.btnLoadMore.classList.add('hide');
+   
     Notiflix.Notify.failure(
       "We're sorry, but you've reached the end of search results."
     );
@@ -103,3 +109,12 @@ async function handlerLoadMore() {
       });
   }
 }
+
+function onObserver (entries, observer) {
+  entries.forEach(entry => {
+      if (entry.isIntersecting) {
+          handlerLoadMore();
+    }; 
+  });
+};
+
